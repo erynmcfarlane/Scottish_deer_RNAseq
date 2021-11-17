@@ -44,6 +44,7 @@ muscle_expression<-(rdirichlet(n=n, alpha=c(alpha)))*30000000
 ### this is my data frame, where each column is a gene, and each individual is represented in two rows, once for heart and one for muscle
 expression<-rbind(heart_expression, muscle_expression)
 
+expression.df<-as.data.frame(expression)
 phenotypes<-cbind(deername,Q, tissues, age, genotypes_twice) 
 names(phenotypes)
 
@@ -64,3 +65,41 @@ for(i in 1:3){
 }
 summary(expression.fit)  
 plot(expression.fit)
+
+
+
+###let's try to do a multivariate lasso?
+library(glmnet)
+
+fit<-glmnet(phenotypes, expression.df, family="mgaussian")
+plot(fit, xvar="lambda", label=TRUE, type.coef="2norm")
+
+
+### I have no idea how to interpret this, but I did get it to work!
+### needs to be said, m-gaussion has to be the wrong distribution for my data. 
+
+### let's look at corncob?
+library(corncob)
+library(magrittr)
+library(phyloseq)
+
+
+### not going to include the genotype data in the phenotypes - this isn't a sparse model approach. 
+phyloseq::otu_table(expression, taxa_are_rows=FALSE)->expression.phyloseq
+phyloseq::sample_data(phenotypes[,1:4])->phenotypes.phyloseq
+phyloseq(expression.phyloseq, phenotypes.phyloseq)->data.phyloseq
+
+
+da_analysis<-differentialTest(formula = ~ Q+age+tissue+deername, 
+                              phi.formula = ~ Q, 
+                              formula_null= ~1,
+                              test="LTR", 
+                              boot=FALSE, 
+                              data=data.phyloseq,
+                              fdr_cutoff=0.05)
+
+#### this isn't working even with the example data and I don't know why
+soil <- soil_phylum_small
+corncob<-bbdml(formula=sp1~1, 
+               phi.formula=~1, 
+               data=soil)

@@ -5,6 +5,7 @@
 ### Third step - Harrison paper
 ### Fourth step - corncob loop? 
 
+
 ### only the corn cob loop will account for variation in the admixture estimates, I think. 
 
 ###hoping for some quick and dirty PCAs for a 'here's what I'm doing talk' coming up

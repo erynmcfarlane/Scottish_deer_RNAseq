@@ -1,3 +1,12 @@
+### What I need to do is 1) pull all of the RNAseq data in and 2) pull all of the admixture k=2 data in
+### then, I need to put these two data sets together, and plot a PCA of how SNP_species looks. 
+### First steps can be DESeq2, just as we did in the flycatchers, using the SNP_species
+### Second step could be using limma-voom
+### Third step - Harrison paper
+### Fourth step - corncob loop? 
+
+### only the corn cob loop will account for variation in the admixture estimates, I think. 
+
 ###hoping for some quick and dirty PCAs for a 'here's what I'm doing talk' coming up
 ###famous last words, I suspect I won't be able to do anything.
 
@@ -38,31 +47,38 @@ head(phenotypes)
 
 merge(colData_1, phenotypes, by="deername")->merge_data
 length(merge_data[,1])
-merge_data[,c(1,2,8,9)]->colData
+
+### read in the ADMIXTURE analysis data
+read.table("~/Google Drive/Paper VI - RNAseq/Scottish_deer_RNAseq_R/all_pops_merged.ped")->deerped
+deerped[,2]->deername
+read.table("~/Google Drive/Paper VI - RNAseq/Scottish_deer_RNAseq_R/all_pops_merged.2.Q")->admixture
+read.table("~/Google Drive/Paper VI - RNAseq/Scottish_deer_RNAseq_R/all_pops_merged.2.Q_se")->SE
+cbind(deername, admixture, SE)->admixture_data
+names(admixture_data)<-c("EM.code", "ad_sika", "ad_red", "ad_SE2", "ad_SE1")
+admixture_data$SNP_species<-ifelse((admixture_data$ad_red+1.96*admixture_data$ad_SE1>=0.99999), "red", 
+                                    ifelse((admixture_data$ad_red-1.96*admixture_data$ad_SE1<=0.00001), "sika", "hybrid"))
+
+merge(merge_data, admixture_data, by='EM.code')->alldata
+alldata[,c(2,3,8,15, 18)]->colData
 colData[which(colData$deername=="SAC00002831"), ]$Weight<-c(NA, NA)
-colData[which(colData$deername=="SAC00002831"), ]$Species<-c("UNK", "UNK")
 colData[which(colData$Weight=="N/A"),]$Weight<-NA
-colData$Species<-as.factor(colData$Species)
+
 
 ### this isn't working - go into DESeq2
 library(DESeq2)
 library(PCAtools)
 dds <- DESeqDataSetFromMatrix(countData = count_df_coding,
-                              colData = colData,
-                              design= ~ tissue*Species) ## taking into account the two factor design?
-###pull the phenotypic species from Fraser
+                              colData = colData, 
+                              design=  ~ as.factor(tissue)*as.factor(SNP_species)) 
 
 dds <- DESeq(dds)
 keep <- rowSums(counts(dds)) >= 10
 dds <- dds[keep,]
 vst <- vst(dds)
 
-### from a different tutorial
-#https://www.bioconductor.org/help/course-materials/2014/SeattleOct2014/B02.1.1_RNASeqLab.html#diagnostic
-### start again with the vst data
-
 str(assay(vst))
 sampleDists<-dist(t(assay(vst)))
+
 
 ###start with a heatmap
 library("gplots")
@@ -73,16 +89,16 @@ samplePoisDistMatrix <- as.matrix( poisd$dd )
 rownames(samplePoisDistMatrix) <- paste( dds$Species, dds$tissue, sep="-" )
 colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255)
 hc <- hclust(poisd$dd)
-heatmap.2( samplePoisDistMatrix, Rowv=as.dendrogram(hc),
+heatmap(samplePoisDistMatrix, Rowv=as.dendrogram(hc),
            symm=TRUE, trace="none", col=colors,
            margins=c(2,10), labCol=FALSE )
 
-plotPCA(vst, intgroup = "Species")
+plotPCA(vst, intgroup = "SNP_species")
 
 
-(data <- plotPCA(vst, intgroup = c( "Species", "tissue"), returnData=TRUE))
+(data <- plotPCA(vst, intgroup = c( "SNP_species", "tissue"), returnData=TRUE))
 percentVar <- round(100 * attr(data, "percentVar"))
-qplot(PC1, PC2, color=Species, shape=tissue, data=data) +
+qplot(PC1, PC2, color=SNP_species, shape=tissue, data=data) +
   xlab(paste0("PC1: ",percentVar[1],"% variance")) +
   ylab(paste0("PC2: ",percentVar[2],"% variance"))
 
@@ -93,11 +109,11 @@ PC2=pca$x[,2]
 PC3=pca$x[,3]
 PC4=pca$x[,4]
 
-qplot(PC1, PC2, color=Species, shape=tissue, data=data) +
+qplot(PC1, PC2, color=SNP_species, shape=tissue, data=data) +
   xlab(paste0("PC1: ",percentVar[1],"% variance")) +
   ylab(paste0("PC2: ",percentVar[2],"% variance"))
 
 
-mds <- data.frame(cmdscale(sampleDistMatrix))
+mds <- data.frame(cmdscale(samplePoisDistMatrix))
 mds <- cbind(mds, colData(vst))
-qplot(X1,X2,color=Species,shape=tissue,data=mds)
+qplot(X1,X2,color=SNP_species,shape=tissue,data=mds)

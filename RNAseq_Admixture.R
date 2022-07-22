@@ -1,5 +1,6 @@
 ### What I need to do is 1) pull all of the RNAseq data in and 2) pull all of the admixture k=2 data in
 ### then, I need to put these two data sets together, and plot a PCA of how SNP_species looks. 
+### Think about doing MDS rather than PCA?
 ### First steps can be DESeq2, just as we did in the flycatchers, using the SNP_species
 ### Second step could be using limma-voom
 ### Third step - Harrison paper
@@ -87,7 +88,7 @@ library("RColorBrewer")
 library("PoiClaClu")
 poisd <- PoissonDistance(t(counts(dds)))
 samplePoisDistMatrix <- as.matrix( poisd$dd )
-rownames(samplePoisDistMatrix) <- paste( dds$Species, dds$tissue, sep="-" )
+rownames(samplePoisDistMatrix) <- paste( dds$SNP_species, dds$tissue, sep="-" )
 colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255)
 hc <- hclust(poisd$dd)
 heatmap(samplePoisDistMatrix, Rowv=as.dendrogram(hc),
@@ -118,3 +119,35 @@ qplot(PC1, PC2, color=SNP_species, shape=tissue, data=data) +
 mds <- data.frame(cmdscale(samplePoisDistMatrix))
 mds <- cbind(mds, colData(vst))
 qplot(X1,X2,color=SNP_species,shape=tissue,data=mds)
+
+
+###rlog because the data are heterschedastic
+
+#rld<-rlog(dds) ### vst is already doing this - don't need this!
+
+### let's do some actual differential expression, at least between tissues?
+#dds <- DESeq(dds) - already did this, this is the analysis
+results<-results(dds) ###not really sure what this is doing, there's some pairwise thing that isn't working. 
+### just for point of view, let's use just the muscle (where we expect the difference) and look at red like and sika liek animals. 
+colData$species_like<-ifelse(colData$ad_red>0.95, 'red like', ifelse(colData$ad_red<0.5, 'sika like', 'mid hybrid'))
+plot_2A<-ggplot(colData, aes(x=reorder(deername, ad_red), y=ad_red, colour=SNP_species))+geom_point(size=1)
+plot_2A<-plot_2A+labs(x="Deer", y="Proportion Red Deer")+scale_colour_manual(values=c("purple", "red", "blue"))+theme(panel.grid=element_blank(), panel.background=element_blank(), axis.ticks.x=element_blank(), axis.text.x=element_blank(), legend.key=element_blank())
+plot2A<-plot_2A+theme(axis.line=element_line(colour="black", size=0.5))
+plot2A<-plot_2A+geom_hline(yintercept=c(0, 0.05, 0.95, 1), colour="grey")
+plot2A+guides(colour=guide_legend(title = "SNP species"))
+
+#### Things that I've learned - most of the animals are very red deer like hybrids. Might be better to take out the 3 sika like individuals, and only look at the other deer?
+colData[which(colData$ad_red>0.5), ]->colData_2
+count_df_coding[,c(as.numeric(unlist(rownames(colData_2))))]->count_df_coding_2
+dds_2 <- DESeqDataSetFromMatrix(countData = count_df_coding_2,
+                              colData = colData_2, 
+                              design=  ~ tissue+ad_red:tissue) 
+
+dds <- DESeq(dds_2)
+res<-results(dds)
+#https://support.bioconductor.org/p/126713/
+#the interpretation of the log2 fold change is the fold change in expression for one unit of the variable
+
+res[which(res$padj<0.05),]
+
+### my feeling is that each tissue should be done separtately, that's how deseq might work?

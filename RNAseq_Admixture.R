@@ -182,6 +182,10 @@ mm<-model.matrix(~0+group)
 y<-voom(d, mm, plot=T) ### this gives a negative quadratic shape, which sounds bad? stack over flow basically says 'do more filtering!'
 ### https://stats.stackexchange.com/questions/160255/voom-mean-variance-trend-plot-how-to-interpret-the-plot
 ### I  don't entirely understand what this plot is showing, but it does seem like we want a positive quadratic, not a negatic one. 
+<<<<<<< HEAD
 ### another tutorial with more explanation of the mean-variance trend https://f1000research.com/articles/5-1408
 #### is the variance going down at the end because there are so few genes that are so highly expressed?
 ### It also seems like a marked pattern like this is evidence of lots of biological variance, which is good, that's kind of what we're going for. 
+=======
+
+>>>>>>> 544282bc5d2ac935165bb4b891487f850b8b0f24

@@ -151,3 +151,37 @@ res<-results(dds)
 res[which(res$padj<0.05),]
 
 ### my feeling is that each tissue should be done separtately, that's how deseq might work?
+
+
+
+##### Step 2 using Limma-Voom
+
+## need to transpose the count data, and stick it on the coldata?
+### let's do the voom step first. This 'Transform count data to log2-counts per million (logCPM), estimate the mean-variance relationship and use this to compute appropriate observation-level weights. The data are then ready for linear modelling.'
+### following this tutorial
+library(edgeR)
+
+counts_edgeR<-count_df_coding
+colnames(counts_edgeR)<-as.factor(paste0(colData$deername, colData$tissue))
+do<-DGEList(counts_edgeR)
+d0<-calcNormFactors(do)
+cutoff<-3
+drop<-which(apply(cpm(d0), 1, max)<cutoff)
+d<-d0[-drop,]
+dim(d) ### number of genes left
+snames<-colData$deername
+species<-colData$SNP_species
+tissue<-colData$tissue
+
+group<-interaction(species, tissue)
+
+plotMDS(d, col=as.numeric(group))
+
+
+mm<-model.matrix(~0+group)
+y<-voom(d, mm, plot=T) ### this gives a negative quadratic shape, which sounds bad? stack over flow basically says 'do more filtering!'
+### https://stats.stackexchange.com/questions/160255/voom-mean-variance-trend-plot-how-to-interpret-the-plot
+### I  don't entirely understand what this plot is showing, but it does seem like we want a positive quadratic, not a negatic one. 
+### another tutorial with more explanation of the mean-variance trend https://f1000research.com/articles/5-1408
+#### is the variance going down at the end because there are so few genes that are so highly expressed?
+### It also seems like a marked pattern like this is evidence of lots of biological variance, which is good, that's kind of what we're going for. 

@@ -164,8 +164,8 @@ library(edgeR)
 counts_edgeR<-count_df_coding
 colnames(counts_edgeR)<-as.factor(paste0(colData$deername, colData$tissue))
 do<-DGEList(counts_edgeR)
-d0<-calcNormFactors(do)
-cutoff<-3
+d0<-calcNormFactors(do, method = "TMM") ### this is where I have normalized the data
+cutoff<-10
 drop<-which(apply(cpm(d0), 1, max)<cutoff)
 d<-d0[-drop,]
 dim(d) ### number of genes left
@@ -182,10 +182,11 @@ mm<-model.matrix(~0+group)
 y<-voom(d, mm, plot=T) ### this gives a negative quadratic shape, which sounds bad? stack over flow basically says 'do more filtering!'
 ### https://stats.stackexchange.com/questions/160255/voom-mean-variance-trend-plot-how-to-interpret-the-plot
 ### I  don't entirely understand what this plot is showing, but it does seem like we want a positive quadratic, not a negatic one. 
-<<<<<<< HEAD
+
 ### another tutorial with more explanation of the mean-variance trend https://f1000research.com/articles/5-1408
 #### is the variance going down at the end because there are so few genes that are so highly expressed?
 ### It also seems like a marked pattern like this is evidence of lots of biological variance, which is good, that's kind of what we're going for. 
-=======
 
->>>>>>> 544282bc5d2ac935165bb4b891487f850b8b0f24
+### might want to normalize the data a little bit more - is this getting rid of the variation across individuals? Is this what I want to do?
+### I think I need to think a lot about how there's not a ton of variation between the two axis (species and tissue) and so it's not coming out on the PCAs.
+## But that might be what's interesting here, maybe I'm looking at little amounts of variation?

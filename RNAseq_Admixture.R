@@ -3,8 +3,9 @@
 ### Think about doing MDS rather than PCA?
 ### First steps can be DESeq2, just as we did in the flycatchers, using the SNP_species
 ### Second step could be using limma-voom
-### Third step - Harrison paper
-### Fourth step - corncob loop? 
+### Third step could be kallisto-sleuth (I think this might start from raw reads?)
+### fourth step - Harrison paper
+### fifth step - corncob loop? 
 
 
 ### only the corn cob loop will account for variation in the admixture estimates, I think. 
@@ -66,15 +67,20 @@ colData[which(colData$deername=="SAC00002831"), ]$Weight<-c(NA, NA)
 colData[which(colData$Weight=="N/A"),]$Weight<-NA
 
 
+###I'm going to take out the one sika individual, SAC00002777, and two sika like individuals SAC00002805 and SAC00002817
+
+colData_nosika<-colData[which(colData$ad_red>0.5),]
+count_df_coding_nosika<-count_df_coding[,c(1:22, 25:30, 33:38, 41:56)]
+
 ### this isn't working - go into DESeq2
 library(DESeq2)
 library(PCAtools)
-dds <- DESeqDataSetFromMatrix(countData = count_df_coding,
-                              colData = colData, 
+dds <- DESeqDataSetFromMatrix(countData = count_df_coding_nosika,
+                              colData = colData_nosika, 
                               design=  ~ as.factor(tissue)*as.factor(SNP_species)) 
 
 dds <- DESeq(dds)
-keep <- rowSums(counts(dds)) >= 10
+keep <- rowSums(counts(dds)) >= 3 ###I have a feeling analyses change a lot depending on this number
 dds <- dds[keep,]
 vst <- vst(dds)
 
@@ -95,7 +101,7 @@ heatmap(samplePoisDistMatrix, Rowv=as.dendrogram(hc),
            symm=TRUE, trace="none", col=colors,
            margins=c(2,10), labCol=FALSE )
 
-plotPCA(vst, intgroup = "SNP_species")
+plotPCA(vst, intgroup = c("SNP_species", "tissue"))
 
 
 (data <- plotPCA(vst, intgroup = c( "SNP_species", "tissue"), returnData=TRUE))
@@ -127,7 +133,7 @@ qplot(X1,X2,color=SNP_species,shape=tissue,data=mds)
 
 ### let's do some actual differential expression, at least between tissues?
 #dds <- DESeq(dds) - already did this, this is the analysis
-results<-results(dds) ###not really sure what this is doing, there's some pairwise thing that isn't working. 
+res<-results(dds) ###not really sure what this is doing, there's some pairwise thing that isn't working. 
 ### just for point of view, let's use just the muscle (where we expect the difference) and look at red like and sika liek animals. 
 colData$species_like<-ifelse(colData$ad_red>0.95, 'red like', ifelse(colData$ad_red<0.5, 'sika like', 'mid hybrid'))
 plot_2A<-ggplot(colData, aes(x=reorder(deername, ad_red), y=ad_red, colour=SNP_species))+geom_point(size=1)
@@ -136,23 +142,27 @@ plot2A<-plot_2A+theme(axis.line=element_line(colour="black", size=0.5))
 plot2A<-plot_2A+geom_hline(yintercept=c(0, 0.05, 0.95, 1), colour="grey")
 plot2A+guides(colour=guide_legend(title = "SNP species"))
 
-#### Things that I've learned - most of the animals are very red deer like hybrids. Might be better to take out the 3 sika like individuals, and only look at the other deer?
-colData[which(colData$ad_red>0.5), ]->colData_2
-count_df_coding[,c(as.numeric(unlist(rownames(colData_2))))]->count_df_coding_2
-dds_2 <- DESeqDataSetFromMatrix(countData = count_df_coding_2,
-                              colData = colData_2, 
-                              design=  ~ tissue+ad_red:tissue) 
 
-dds <- DESeq(dds_2)
-res<-results(dds)
 #https://support.bioconductor.org/p/126713/
 #the interpretation of the log2 fold change is the fold change in expression for one unit of the variable
 
 res[which(res$padj<0.05),]
 
-### my feeling is that each tissue should be done separtately, that's how deseq might work?
+### my feeling is that each tissue should be done separately, that's how deseq might work?
 
+### also going to do a volcano plot
+library('EnhancedVolcano')
 
+EnhancedVolcano(res,
+                lab = rownames(res),
+                x = 'log2FoldChange',
+                y = 'pvalue',
+                #title = 'N061011 versus N61311',
+                FCcutoff = 1.5,
+                pointSize = 3.0,
+                labSize = 6.0,
+                col=c('black', 'black', 'black', 'red3'),
+                colAlpha = 1)
 
 ##### Step 2 using Limma-Voom
 
@@ -161,25 +171,49 @@ res[which(res$padj<0.05),]
 ### following this tutorial
 library(edgeR)
 
-counts_edgeR<-count_df_coding
-colnames(counts_edgeR)<-as.factor(paste0(colData$deername, colData$tissue))
+counts_edgeR<-count_df_coding_nosika
+colnames(counts_edgeR)<-as.factor(paste0(colData_nosika$deername, colData_nosika$tissue))
 do<-DGEList(counts_edgeR)
 d0<-calcNormFactors(do, method = "TMM") ### this is where I have normalized the data
 cutoff<-10
 drop<-which(apply(cpm(d0), 1, max)<cutoff)
 d<-d0[-drop,]
 dim(d) ### number of genes left
-snames<-colData$deername
-species<-colData$SNP_species
-tissue<-colData$tissue
+snames<-colData_nosika$deername
+species<-colData_nosika$SNP_species
+tissue<-colData_nosika$tissue
 
+### from here, this is from https://github.com/jokelley/congen-2022/blob/main/differential_expression.md
 group<-interaction(species, tissue)
 
 plotMDS(d, col=as.numeric(group))
+y<-DGEList(counts=counts_edgeR, group=group)
+y<-calcNormFactors(y)
+
+plotMDS(y)
+
+design <- model.matrix(~0+group)
+design
+y2 <- estimateDisp(y,design) 
 
 
-mm<-model.matrix(~0+group)
-y<-voom(d, mm, plot=T) ### this gives a negative quadratic shape, which sounds bad? stack over flow basically says 'do more filtering!'
+fit <- glmQLFit(y2,design)
+lrt12 <- glmLRT(fit, contrast=c(1,-1,0))
+lrt13 <- glmLRT(fit, contrast=c(1,0,-1))
+lrt23 <- glmLRT(fit, contrast=c(0,1,-1))
+topTags(lrt12, n=10)
+topTags(lrt13, n=10)
+topTags(lrt23, n=10)
+
+summary(de12 <- decideTestsDGE(lrt12, p.value = 0.05))
+summary(de13 <- decideTestsDGE(lrt13, p.value = 0.05))
+summary(de23 <- decideTestsDGE(lrt23, p.value = 0.05))
+
+detags <- rownames(y)[as.logical(de)]
+plotSmear(qlf, de.tags=detags)
+abline(h = c(-1, 1), col = "blue") ### this is also a volcano plot
+
+### this gives a negative quadratic shape, which sounds bad? stack over flow basically says 'do more filtering!'
 ### https://stats.stackexchange.com/questions/160255/voom-mean-variance-trend-plot-how-to-interpret-the-plot
 ### I  don't entirely understand what this plot is showing, but it does seem like we want a positive quadratic, not a negatic one. 
 
@@ -190,3 +224,5 @@ y<-voom(d, mm, plot=T) ### this gives a negative quadratic shape, which sounds b
 ### might want to normalize the data a little bit more - is this getting rid of the variation across individuals? Is this what I want to do?
 ### I think I need to think a lot about how there's not a ton of variation between the two axis (species and tissue) and so it's not coming out on the PCAs.
 ## But that might be what's interesting here, maybe I'm looking at little amounts of variation?
+
+

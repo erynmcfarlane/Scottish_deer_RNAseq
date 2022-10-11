@@ -226,3 +226,28 @@ abline(h = c(-1, 1), col = "blue") ### this is also a volcano plot
 ## But that might be what's interesting here, maybe I'm looking at little amounts of variation?
 
 
+### using direchlet distribution a la Harrison et al. 2020
+library(rstan)
+library(nlme)
+
+DM <- rstan::stan_model("DM.stan", 
+                        model_name="DM")
+
+
+fitstan_HMC <-rstan::sampling(DM, 
+                              data=list("datamatrix"=count_df_coding_nosika, ### this is the count data
+                                        "nreps"=nrow(count_df_coding_nosika), 
+                                        "notus"=ncol(count_df_coding_nosika),
+                                        "N"=4, 
+                                        "start" = unique(as.factor(paste0(colData_nosika$SNP_species, colData_nosika$tissue)))[1],### I don't know what this is
+                                        "end" = unique(as.factor(paste0(colData_nosika$SNP_species, colData_nosika$tissue)))[4], ### I don't know what this is
+                              chains=2, 
+                              control = list(max_treedepth = 15),
+                              warmup=1000, 
+                              iter=2000, 
+                              thin=2, 
+                              algorithm="NUTS", ### I don't know what this is
+                              cores=2, 
+                              seed=123,
+                              pars<-c("pi")))
+

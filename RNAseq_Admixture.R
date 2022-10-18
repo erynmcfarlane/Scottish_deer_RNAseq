@@ -229,6 +229,13 @@ abline(h = c(-1, 1), col = "blue") ### this is also a volcano plot
 ### using direchlet distribution a la Harrison et al. 2020
 library(rstan)
 library(nlme)
+options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
+
+library(dplyr)
+bind <- function(...) cbind(...)
+
+
 
 DM <- rstan::stan_model("DM.stan", 
                         model_name="DM")
@@ -239,8 +246,8 @@ fitstan_HMC <-rstan::sampling(DM,
                                         "nreps"=nrow(count_df_coding_nosika), 
                                         "notus"=ncol(count_df_coding_nosika),
                                         "N"=4, 
-                                        "start" = unique(as.factor(paste0(colData_nosika$SNP_species, colData_nosika$tissue)))[1],### I don't know what this is
-                                        "end" = unique(as.factor(paste0(colData_nosika$SNP_species, colData_nosika$tissue)))[4], ### I don't know what this is
+                                        "start" = 1,### I don't know what this is
+                                        "end" = length(nreps), ### I don't know what this is
                               chains=2, 
                               control = list(max_treedepth = 15),
                               warmup=1000, 
@@ -250,4 +257,3 @@ fitstan_HMC <-rstan::sampling(DM,
                               cores=2, 
                               seed=123,
                               pars<-c("pi")))
-

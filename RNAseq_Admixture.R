@@ -257,3 +257,10 @@ fitstan_HMC <-rstan::sampling(DM,
                               cores=2, 
                               seed=123,
                               pars<-c("pi")))
+
+
+#### this is going to be way harder than I thought it would.
+
+### to get the empirical parts of this project done, going to ask two questions:
+#1) is there DEG between red deer and hybrids, using converg?
+#2) is there a difference in composition (not DEG, too hard) along the q score gradient?

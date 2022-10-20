@@ -8,24 +8,28 @@
 ### 2) more in line with more 'traditional DEG' studies, are there DEG between red deer and hybrids, ignoring variation in q?
 ### I will think more, and hard, about how to do dirichlet regression (see paper from Alex, )
 
+###changing all the filepaths to work on teton
+#/project/evolgen/emcfarl2/deer_RNAseq
 
-library(pcaExplorer)
+
+
 library(CNVRG)
 library(rstan)
+options(mc.cores = parallel::detectCores())
 library(shinystan)
 
 ### will need to add something like this to it, to only look at the protein coding genes
-read.table("~/Google Drive/Paper VI - RNAseq/Scottish_deer_RNAseq_R/ncbi_protein_coding_genes.tsv", header = T)->gene_list
+read.table("./datafiles/ncbi_protein_coding_genes.tsv", header = T)->gene_list
 
 
-countfiles<-list.files("~/Google Drive/Paper VI - RNAseq/Output/CountFiles_170322/Countfiles", pattern="*_count.tsv")
+countfiles<-list.files("./", pattern="*_count.tsv")
 
 deernames_count<-as.factor(sapply(strsplit(countfiles, split="_"), function(x) x[1]))
 tissuetype_count<-as.factor(sapply(strsplit(countfiles, split="_"), function(x) x[2]))
 
 count<-list()
 
-setwd("~/Google Drive/Paper VI - RNAseq/Output/CountFiles_170322/Countfiles")
+
 for(i in 1:length(countfiles)){
   count[[i]]<-read.table(countfiles[i])[1:33296,2]
 }
@@ -44,17 +48,17 @@ setwd("../")
 
 colData_1<-data.frame(cbind(as.character(deernames_count), as.character(tissuetype_count)))
 names(colData_1)<-c("deername", "tissue")
-read.csv("~/Google Drive/Paper VI - RNAseq/Scottish_deer_RNAseq_R/Kintyre_2019_2020.csv")->phenotypes
+read.csv("./datafiles/Kintyre_2019_2020.csv")->phenotypes
 head(phenotypes)
 
 merge(colData_1, phenotypes, by="deername")->merge_data
 length(merge_data[,1])
 
 ### read in the ADMIXTURE analysis data
-read.table("~/Google Drive/Paper VI - RNAseq/Scottish_deer_RNAseq_R/all_pops_merged.ped")->deerped
+read.table("./datafiles/all_pops_merged.ped")->deerped
 deerped[,2]->deername
-read.table("~/Google Drive/Paper VI - RNAseq/Scottish_deer_RNAseq_R/all_pops_merged.2.Q")->admixture
-read.table("~/Google Drive/Paper VI - RNAseq/Scottish_deer_RNAseq_R/all_pops_merged.2.Q_se")->SE
+read.table("./datafiles/all_pops_merged.2.Q")->admixture
+read.table("./datafiles/all_pops_merged.2.Q_se")->SE
 cbind(deername, admixture, SE)->admixture_data
 names(admixture_data)<-c("EM.code", "ad_sika", "ad_red", "ad_SE2", "ad_SE1")
 admixture_data$SNP_species<-ifelse((admixture_data$ad_red+1.96*admixture_data$ad_SE1>=0.99999), "red", 
@@ -84,20 +88,20 @@ cnvg_data_nosika_ordered[,2:22927] <- 1 + cnvg_data_nosika_ordered[,2:22927]
 
 ### let's make a much smaller analysis, just to start
 
-cnvg_data_nosika_short<-cnvg_data_nosika_ordered[,1:200]
+#cnvg_data_nosika_short<-cnvg_data_nosika_ordered[,1:200]
 
 
 ###Start CNVRG analysis
 
 ### run the model###
-modelOut <- cnvrg_HMC(countData = cnvg_data_nosika_short, 
-                      starts = indexer(cnvg_data_nosika_short$treatment)$starts, 
-                      ends = indexer(cnvg_data_nosika_short$treatment)$ends, 
+modelOut <- cnvrg_HMC(countData = cnvg_data_nosika_ordered, 
+                      starts = indexer(cnvg_data_nosika_ordered$treatment)$starts, 
+                      ends = indexer(cnvg_data_nosika_ordered$treatment)$ends, 
                       chains = 2, 
                       burn = 500, 
                       samples = 1000, 
                       thinning_rate = 2,
-                      cores = 1,
+                      cores = 2,
                       params_to_save = c("pi", "p"))
 
 ###check convergence, as one does
@@ -106,10 +110,10 @@ head(rstan::summary(modelOut, pars = "pi", probs =c(0.025, 0.975))$summary)
 
 #shinystan::launch_shinystan(modelOut) #to look at visualizations of diagnostic parameters
 
-point_est <- extract_point_estimate(model_out = modelOut, countData = cnvg_data_nosika_short) ## get point estimates out
+point_est <- extract_point_estimate(model_out = modelOut, countData = cnvg_data_nosika_ordered) ## get point estimates out
 
 ### differential expression
-diff_abund_test <- diff_abund(model_out = modelOut, countData = cnvg_data_nosika_short) ### this gives pairwise differences between each of the treatments, and gives the genes that are different between them
+diff_abund_test <- diff_abund(model_out = modelOut, countData = cnvg_data_nosika_ordered) ### this gives pairwise differences between each of the treatments, and gives the genes that are different between them
 
 
 #From vingette
@@ -138,4 +142,4 @@ diff_abund_test$features_that_differed$treatment_2_vs_treatment_4 ## muscle vs m
 ### this might be what I want to then ask how the diversities are changing across q?
 #entropies <- diversity_calc(model_out = modelOut, countData = fungi, entropy_measure = 'shannon',equivalents = T)
 
-save.images("deer_dirichlet_DEG.RData")
+save.images("/project/evolgen/emcfarl2/deer_RNAseq/output/deer_dirichlet_DEG.RData")

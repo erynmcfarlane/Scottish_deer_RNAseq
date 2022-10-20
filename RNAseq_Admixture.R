@@ -84,15 +84,15 @@ cnvg_data_nosika_ordered[,2:22927] <- 1 + cnvg_data_nosika_ordered[,2:22927]
 
 ### let's make a much smaller analysis, just to start
 
-cnvg_data_nosika_short<-cnvg_data_nosika_ordered[,1:100]
+cnvg_data_nosika_short<-cnvg_data_nosika_ordered[,1:200]
 
 
 ###Start CNVRG analysis
 
 ### run the model###
 modelOut <- cnvrg_HMC(countData = cnvg_data_nosika_short, 
-                      starts = indexer(cnvg_data_nosika_short$treatment)$starts, #c(1,39,76,113),
-                      ends = indexer(cnvg_data_nosika_short$treatment)$ends, #c(38,75,112,148),
+                      starts = indexer(cnvg_data_nosika_short$treatment)$starts, 
+                      ends = indexer(cnvg_data_nosika_short$treatment)$ends, 
                       chains = 2, 
                       burn = 500, 
                       samples = 1000, 
@@ -109,6 +109,33 @@ head(rstan::summary(modelOut, pars = "pi", probs =c(0.025, 0.975))$summary)
 point_est <- extract_point_estimate(model_out = modelOut, countData = cnvg_data_nosika_short) ## get point estimates out
 
 ### differential expression
-diff_abund_test <- diff_abund(model_out = modelOut, countData = cnvg_data_nosika_short) ### this didn't work? Is it possible it only works for 2 treatments, not when I have 4? In which case, I should split up the tissues?
+diff_abund_test <- diff_abund(model_out = modelOut, countData = cnvg_data_nosika_short) ### this gives pairwise differences between each of the treatments, and gives the genes that are different between them
 
 
+#From vingette
+#This function subtracts the posterior distribution of the pi paramater for each feature in one treatment group from the pi parameter distribution in other treatment groups. 
+#The function outputs a matrix of proportions that describes the proportion of the distribution of differences that is greater than zero, for each comparison. 
+#In this example, the comparison between treatment 1 and treatment 3 provided the following results
+##Note:
+#treatment1 = hybrid heart
+#treatment2 = hybrid muscle
+#treatment3 = red heart
+#treatment4 = red muscle
+
+head(diff_abund_test)
+
+str(diff_abund_test)
+str(diff_abund_test$features_that_differed)
+
+### want to look at probability of differences either >0.95 or <0.05
+diff_abund_test$features_that_differed$treatment_1_vs_treatment_3 ##heart vs heart
+diff_abund_test$features_that_differed$treatment_2_vs_treatment_4 ## muscle vs muscle
+
+
+### probably want to plot this as a manhattan plot? volcano plot?
+
+#effect size by probability?
+### this might be what I want to then ask how the diversities are changing across q?
+#entropies <- diversity_calc(model_out = modelOut, countData = fungi, entropy_measure = 'shannon',equivalents = T)
+
+save.images("deer_dirichlet_DEG.RData")

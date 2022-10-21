@@ -101,7 +101,7 @@ modelOut <- cnvrg_HMC(countData = cnvg_data_nosika_ordered,
                       burn = 500, 
                       samples = 1000, 
                       thinning_rate = 2,
-                      cores = 2,
+                      cores = 10,
                       params_to_save = c("pi", "p"))
 
 ###check convergence, as one does

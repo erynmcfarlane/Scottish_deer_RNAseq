@@ -22,14 +22,14 @@ library(shinystan)
 read.table("./datafiles/ncbi_protein_coding_genes.tsv", header = T)->gene_list
 
 
-countfiles<-list.files("./", pattern="*_count.tsv")
+countfiles<-list.files("./countfiles", pattern="*_count.tsv")
 
 deernames_count<-as.factor(sapply(strsplit(countfiles, split="_"), function(x) x[1]))
 tissuetype_count<-as.factor(sapply(strsplit(countfiles, split="_"), function(x) x[2]))
 
 count<-list()
 
-
+setwd("../countfiles")
 for(i in 1:length(countfiles)){
   count[[i]]<-read.table(countfiles[i])[1:33296,2]
 }

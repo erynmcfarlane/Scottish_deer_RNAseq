@@ -17,6 +17,7 @@ library(CNVRG)
 library(rstan)
 options(mc.cores = parallel::detectCores())
 library(shinystan)
+library(brmstools)
 
 ### will need to add something like this to it, to only look at the protein coding genes
 read.table("./datafiles/ncbi_protein_coding_genes.tsv", header = T)->gene_list
@@ -106,7 +107,8 @@ modelOut <- cnvrg_HMC(countData = cnvg_data_nosika_ordered,
 
 ###check convergence, as one does
 
-head(rstan::summary(modelOut, pars = "pi", probs =c(0.025, 0.975))$summary)
+#head(rstan::summary(modelOut, pars = "pi", probs =c(0.025, 0.975))$summary)
+### for the short ones, Rhat is terrible
 
 #shinystan::launch_shinystan(modelOut) #to look at visualizations of diagnostic parameters
 
@@ -140,6 +142,14 @@ diff_abund_test <- diff_abund(model_out = modelOut, countData = cnvg_data_nosika
 
 #effect size by probability?
 ### this might be what I want to then ask how the diversities are changing across q?
-#entropies <- diversity_calc(model_out = modelOut, countData = fungi, entropy_measure = 'shannon',equivalents = T)
+entropies <- diversity_calc(model_out = modelOut, countData = cnvg_data_nosika_ordered, entropy_measure = 'shannon',equivalents = T)
+
+
+plot(density(entropies[[1]][[1]]), xlab = "Entropy", ylab = "Density", main = "")
 
 save.images("/project/evolgen/emcfarl2/deer_RNAseq/output/deer_dirichlet_DEG_shortrunq.RData")
+
+
+###think a little bit about what you want out of this model?
+### Do I want a plot with the number of DEG, so pairwise comparison on the x, pairwise genes on the y?
+### some kind of heatmap for each pairwise, where deeper colours are larger differences?

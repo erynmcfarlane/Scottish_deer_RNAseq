@@ -126,14 +126,14 @@ diff_abund_test <- diff_abund(model_out = modelOut, countData = cnvg_data_nosika
 #treatment3 = red heart
 #treatment4 = red muscle
 
-head(diff_abund_test)
+#head(diff_abund_test)
 
-str(diff_abund_test)
-str(diff_abund_test$features_that_differed)
+#str(diff_abund_test)
+#str(diff_abund_test$features_that_differed)
 
 ### want to look at probability of differences either >0.95 or <0.05
-diff_abund_test$features_that_differed$treatment_1_vs_treatment_3 ##heart vs heart
-diff_abund_test$features_that_differed$treatment_2_vs_treatment_4 ## muscle vs muscle
+#diff_abund_test$features_that_differed$treatment_1_vs_treatment_3 ##heart vs heart
+#diff_abund_test$features_that_differed$treatment_2_vs_treatment_4 ## muscle vs muscle
 
 
 ### probably want to plot this as a manhattan plot? volcano plot?

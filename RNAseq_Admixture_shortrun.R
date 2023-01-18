@@ -114,6 +114,10 @@ modelOut <- cnvrg_HMC(countData = cnvg_data_nosika_ordered,
 
 point_est <- extract_point_estimate(model_out = modelOut, countData = cnvg_data_nosika_ordered) ## get point estimates out
 
+### maybe what I want from the model is the proportions of variance explained by each species and tissue? How do I get that out?
+
+### then I can look at pairwise differences, if I really want to? I guess I want those that are different between species in muscle, but not heart!
+
 ### differential expression
 diff_abund_test <- diff_abund(model_out = modelOut, countData = cnvg_data_nosika_ordered) ### this gives pairwise differences between each of the treatments, and gives the genes that are different between them
 
@@ -140,13 +144,18 @@ diff_abund_test <- diff_abund(model_out = modelOut, countData = cnvg_data_nosika
 
 ### probably want to plot this as a manhattan plot? volcano plot?
 
+
 #effect size by probability?
 ### this might be what I want to then ask how the diversities are changing across q?
 entropies <- diversity_calc(model_out = modelOut, countData = cnvg_data_nosika_ordered, entropy_measure = 'shannon',equivalents = T)
+## I don't really know what this is, or what it did. I have a nasty feeling it's just telling me how many genes there are, which isn't really a relevent stat for transcriptomics. 
+### the number of genes isn't going to vary the same way that the number of species might in a microbiome study.
 
 
+
+jpeg(file="entropies.jpeg")
 plot(density(entropies[[1]][[1]]), xlab = "Entropy", ylab = "Density", main = "")
-
+dev.off()
 save.images("/project/evolgen/emcfarl2/deer_RNAseq/output/deer_dirichlet_DEG_shortrunq.RData")
 
 

@@ -17,7 +17,7 @@ library(CNVRG)
 library(rstan)
 options(mc.cores = parallel::detectCores())
 library(shinystan)
-library(brmstools)
+#library(brmstools)
 
 ### will need to add something like this to it, to only look at the protein coding genes
 read.table("./datafiles/ncbi_protein_coding_genes.tsv", header = T)->gene_list
@@ -107,8 +107,12 @@ modelOut <- cnvrg_HMC(countData = cnvg_data_nosika_ordered,
 
 ###check convergence, as one does
 
-#head(rstan::summary(modelOut, pars = "pi", probs =c(0.025, 0.975))$summary)
+##head(rstan::summary(modelOut, pars = "pi", probs =c(0.025, 0.975))$summary)
 ### for the short ones, Rhat is terrible
+###this takes 15-20 minutes to run and do the thing.
+jpeg(file="Rhat_density.jpeg")
+plot(density(rstan::summary(modelOut, pars = "pi", probs =c(0.025, 0.975))$summary[,7]),  xlab = "Rhat", ylab = "Density", main = "")
+dev.off()
 
 #shinystan::launch_shinystan(modelOut) #to look at visualizations of diagnostic parameters
 
@@ -144,6 +148,23 @@ diff_abund_test <- diff_abund(model_out = modelOut, countData = cnvg_data_nosika
 
 ### probably want to plot this as a manhattan plot? volcano plot?
 
+
+
+rstan::summary(modelOut, pars = "pi", probs =c(0.025, 0.975))$summary[,1]
+rstan::c_summary(modelOut, pars = "pi", probs =c(0.025, 0.975))$summary[,1]
+### let's plot some volcano plots
+
+##these are the pvalues 'certainty'
+
+
+
+heart_heart<-data.frame(diff_abund_test$certainty_of_diffs)[2,]
+
+jpeg(file="heart_heart.jpeg")
+plot(x=reorder(colnames(heart_heart[2:22927]), heart_heart[2:22927]), y=heart_heart[1,2:22927], type="p")
+dev.off()
+
+muscle_muscle<-data.frame(diff_abund_test$certainty_of_diffs)[6,]
 
 #effect size by probability?
 ### this might be what I want to then ask how the diversities are changing across q?

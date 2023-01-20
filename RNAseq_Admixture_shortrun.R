@@ -139,15 +139,73 @@ diff_abund_test <- diff_abund(model_out = modelOut, countData = cnvg_data_nosika
 #head(diff_abund_test)
 
 #str(diff_abund_test)
-#str(diff_abund_test$features_that_differed)
+str(diff_abund_test$features_that_differed)
+
+### this would be the manhatten plot for heart-heart differences
+###make this into a dataframe that I'm happy to work with
+
+
+differential_abundance<-t(sapply(diff_abund_test$certainty_of_diffs, as.numeric))
+#names(differential_abundance)<-as.matrix(differential_abundance[1,])
+differential_abundance<-differential_abundance[-1,]
+
+differential_abundance <- data.frame(names = row.names(differential_abundance), differential_abundance)
+### need to find the rownames here somewhere. 
+### rownames or column names
+### right now this is ordered alphabetically, I want this ordered by chromosome
+
+###bringing in some annotation
+gbff<-read.delim("~/Downloads/GCF_910594005.1_mCerEla1.1_rna.gbff", header=F, comment.char="#")
+
+library(rtracklayer)
+library(zoo)
+gtf<-rtracklayer::import("~/Downloads/GCF_910594005.1_mCerEla1.1_genomic.gtf")
+gff<-rtracklayer::import.gff("~/Downloads/GCF_910594005.1_mCerEla1.1_genomic.gff")
+
+
+annotation<-data.frame(cbind(gff$gene, gff$chromosome, gff@ranges@start))
+annotation[,2]<-as.numeric(na.locf(annotation[,2]))
+
+names(annotation)<-c("gene", "chromosome", "position")
+
+annotation$chrom_pos<-as.numeric(paste0(annotation$chromosome, ".", annotation$position))
+
+length(tapply(annotation$position, annotation$gene, min)) ###this is what I want for position
+####
+
+
+
+jpeg(file="heart_heart_manhatten.jpeg")
+ggplot(differential_abundance, aes(x=names, y=-log10(X2)))+geom_point()
+dev.off()
+
 
 ### want to look at probability of differences either >0.95 or <0.05
 #diff_abund_test$features_that_differed$treatment_1_vs_treatment_3 ##heart vs heart
 #diff_abund_test$features_that_differed$treatment_2_vs_treatment_4 ## muscle vs muscle
 
+### this would be a volcano plot of just the genes that differ, but the probablity of difference is totally bimodal. Doesn't make complete sense to me
+heart_heart<-diff_abund_test$features_that_differed$treatment_1_vs_treatment_3
+names(heart_heart)<-c("gene", "probability_of_difference", "effect_size")
+
+merged<-merge(heart_heart, annotation, by="gene")
+###need to figure out something here so that I don't get all of the positions, I only get the lowest one
+
+jpeg(file="heart_heart_volcano.jpeg")
+plot(heart_heart$'effect size', heart_heart$'probability_of_difference')
+dev.off()
+
+
+muscle_muscle<-diff_abund_test$features_that_differed$treatment_2_vs_treatment_4
+jpeg(file="muscle_muscle_volcano.jpeg")
+plot(muscle_muscle$'effect size', muscle_muscle$'probability_of_difference')
+dev.off()
+
+
+### let's try these as only significant manhatten plots? 
+
 
 ### probably want to plot this as a manhattan plot? volcano plot?
-
 
 
 rstan::summary(modelOut, pars = "pi", probs =c(0.025, 0.975))$summary[,1]
@@ -157,14 +215,17 @@ rstan::c_summary(modelOut, pars = "pi", probs =c(0.025, 0.975))$summary[,1]
 ##these are the pvalues 'certainty'
 
 
+### I don't think this is gonna work - I think that trying to put 20K genes on the xaxis is not going to work
+#heart_heart<-data.frame(diff_abund_test$certainty_of_diffs)[2,]
 
-heart_heart<-data.frame(diff_abund_test$certainty_of_diffs)[2,]
 
-jpeg(file="heart_heart.jpeg")
-plot(x=reorder(colnames(heart_heart[2:22927]), heart_heart[2:22927]), y=heart_heart[1,2:22927], type="p")
-dev.off()
+#muscle_muscle<-data.frame(diff_abund_test$certainty_of_diffs)[6,]
 
-muscle_muscle<-data.frame(diff_abund_test$certainty_of_diffs)[6,]
+#jpeg(file="muscle_muscle.jpeg")
+#plot(x=reorder(colnames(muscle_muscle[2:22927]), muscle_muscle[2:22927]), y=muscle_muscle[1,2:22927], type="p")
+#dev.off()
+
+
 
 #effect size by probability?
 ### this might be what I want to then ask how the diversities are changing across q?

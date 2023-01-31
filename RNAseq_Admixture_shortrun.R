@@ -18,6 +18,7 @@ library(rstan)
 options(mc.cores = parallel::detectCores())
 library(shinystan)
 library(ggplot2)
+library(ggrepel)
 #library(brmstools)
 
 ### will need to add something like this to it, to only look at the protein coding genes
@@ -150,22 +151,36 @@ str(diff_abund_test$features_that_differed)
 mean_ests<-colMeans(diff_abund_test$ppd[[1]][[3]])
 differences<-data.frame(unlist(diff_abund_test$certainty_of_diffs[2,]))
 differences<-as.numeric(differences[2:22927,])
-gene_names<-as.factor(names(cnvg_data_nosika_ordered)[2:22927])
-heart_heart<-data.frame(cbind(gene_names,mean_ests, differences))
-heart_heart$gene_names<-gene_names
+gene_names<-as.character(names(cnvg_data_nosika_ordered)[2:22927])
+heart_heart<-cbind.data.frame(gene_names,mean_ests, differences)
+#heart_heart$gene_names<-gene_names
 heart_heart$DE<-heart_heart$gene_names %in% diff_abund_test$features_that_differed$treatment_1_vs_treatment_3$feature_that_differed
+heart_heart$delabel<-NA
+heart_heart$delabel<-as.character(ifelse(heart_heart$DE == "FALSE", NA, heart_heart$gene_names))
 
 jpeg(filename="heart_volcano.jpeg")
-plot<-ggplot(heart_heart, aes(x=mean_ests, y=-log10(differences+0.00001), colours=DE))+geom_point()
-print(plot)
+###still need to do labels, including that this is treatment 1 to treatment 3
+plot<-ggplot(heart_heart, aes(x=mean_ests, y=differences, colours=as.factor(DE), label=delabel))+geom_point()+theme_minimal()
+plot2<-plot+scale_color_manual(values=c("black", "red"))+geom_text_repel(size=2, max.overlaps=100)
+print(plot2)
 dev.off()
 
-
-row.names(diff_abund_test$certainty_of_diffs)
-
-####just because the first row is the treatment label
-differences<-as.numeric(differences[2:22927,])
-
+###volcano plot for muscle muscle###
+### distribution of differences from differential abundance test
+mean_ests_muscle<-colMeans(diff_abund_test$ppd[[2]][[4]])
+differences_muscle<-data.frame(unlist(diff_abund_test$certainty_of_diffs[6,]))
+differences_muscle<-as.numeric(differences_muscle[2:22927,])
+gene_names<-as.character(names(cnvg_data_nosika_ordered)[2:22927])
+muscle_muscle<-cbind.data.frame(gene_names,mean_ests_muscle, differences_muscle)
+#heart_heart$gene_names<-gene_names
+muscle_muscle$DE<-muscle_muscle$gene_names %in% diff_abund_test$features_that_differed$treatment_2_vs_treatment_4$feature_that_differed
+muscle_muscle$delabel<-NA
+muscle_muscle$delabel<-as.character(ifelse(muscle_muscle$DE == "FALSE", NA, muscle_muscle$gene_names))
+jpeg(filename="muscle_volcano.jpeg")
+plot<-ggplot(muscle_muscle, aes(x=mean_ests_muscle, y=differences_muscle, colours=as.factor(DE), label=delabel))+geom_point()+theme_minimal()
+plot2<-plot+scale_color_manual(values=c("black", "red"))+geom_text_repel(size=2, max.overlaps=100)
+print(plot2)
+dev.off()
 
 
 

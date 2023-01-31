@@ -17,6 +17,7 @@ library(CNVRG)
 library(rstan)
 options(mc.cores = parallel::detectCores())
 library(shinystan)
+library(ggplot2)
 #library(brmstools)
 
 ### will need to add something like this to it, to only look at the protein coding genes
@@ -144,15 +145,29 @@ str(diff_abund_test$features_that_differed)
 ### this would be the manhatten plot for heart-heart differences
 ###make this into a dataframe that I'm happy to work with
 
+###volcano plot of heart - heart differences
+### distribution of differences from differential abundance test
+mean_ests<-colMeans(diff_abund_test$ppd[[1]][[3]])
+differences<-data.frame(unlist(diff_abund_test$certainty_of_diffs[2,]))
+differences<-as.numeric(differences[2:22927,])
+gene_names<-as.factor(names(cnvg_data_nosika_ordered)[2:22927])
+heart_heart<-data.frame(cbind(gene_names,mean_ests, differences))
+heart_heart$gene_names<-gene_names
+heart_heart$DE<-heart_heart$gene_names %in% diff_abund_test$features_that_differed$treatment_1_vs_treatment_3$feature_that_differed
 
-differential_abundance<-t(sapply(diff_abund_test$certainty_of_diffs, as.numeric))
-#names(differential_abundance)<-as.matrix(differential_abundance[1,])
-differential_abundance<-differential_abundance[-1,]
+jpeg(filename="heart_volcano.jpeg")
+plot<-ggplot(heart_heart, aes(x=mean_ests, y=-log10(differences+0.00001), colours=DE))+geom_point()
+print(plot)
+dev.off()
 
-differential_abundance <- data.frame(names = row.names(differential_abundance), differential_abundance)
-### need to find the rownames here somewhere. 
-### rownames or column names
-### right now this is ordered alphabetically, I want this ordered by chromosome
+
+row.names(diff_abund_test$certainty_of_diffs)
+
+####just because the first row is the treatment label
+differences<-as.numeric(differences[2:22927,])
+
+
+
 
 ###bringing in some annotation
 gbff<-read.delim("~/Downloads/GCF_910594005.1_mCerEla1.1_rna.gbff", header=F, comment.char="#")

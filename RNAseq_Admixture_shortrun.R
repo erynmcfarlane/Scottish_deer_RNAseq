@@ -157,11 +157,12 @@ heart_heart<-cbind.data.frame(gene_names,mean_ests, differences)
 heart_heart$DE<-heart_heart$gene_names %in% diff_abund_test$features_that_differed$treatment_1_vs_treatment_3$feature_that_differed
 heart_heart$delabel<-NA
 heart_heart$delabel<-as.character(ifelse(heart_heart$DE == "FALSE", NA, heart_heart$gene_names))
+heart_heart$differences_absolute<-ifelse(heart_heart$differences>0.5, 1-heart_heart$differences, heart_heart$differences)
 
-jpeg(filename="heart_volcano.jpeg")
+png(filename="heart_volcano.png", width=4,height=4,units="in",res=1200, pointsize = 1)
 ###still need to do labels, including that this is treatment 1 to treatment 3
-plot<-ggplot(heart_heart, aes(x=mean_ests, y=differences, colours=as.factor(DE), label=delabel))+geom_point()+theme_minimal()
-plot2<-plot+scale_color_manual(values=c("black", "red"))+geom_text_repel(size=2, max.overlaps=100)
+plot<-ggplot(heart_heart, aes(x=mean_ests, y=-log10(differences_absolute+0.00001), colour=as.factor(DE)))+geom_point(show.legend=FALSE)+theme_minimal()
+plot2<-plot+scale_color_manual(values=c("black", "red"))+xlab("Estimated difference between hybrid heart and red deer heart")+ylab("-log10 absolute certainty in differences")+theme(axis.text=element_text(size=4),axis.title=element_text(size=8))
 print(plot2)
 dev.off()
 

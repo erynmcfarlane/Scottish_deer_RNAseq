@@ -47,21 +47,21 @@ count_df_coding<-count_df[which(rownames(count_df) %in% gene_list$GeneID), ]
 #row.names(count_df)<-read.table(countfiles[1])[1:25518,1]
 count_df_coding
 
-setwd("../")
+setwd("../../")
 
 colData_1<-data.frame(cbind(as.character(deernames_count), as.character(tissuetype_count)))
 names(colData_1)<-c("deername", "tissue")
-read.csv("./datafiles/Kintyre_2019_2020.csv")->phenotypes
+read.csv("Kintyre_2019_2020.csv")->phenotypes
 head(phenotypes)
 
 merge(colData_1, phenotypes, by="deername")->merge_data
 length(merge_data[,1])
 
 ### read in the ADMIXTURE analysis data
-read.table("./datafiles/all_pops_merged.ped")->deerped
+read.table("all_pops_merged.ped")->deerped
 deerped[,2]->deername
-read.table("./datafiles/all_pops_merged.2.Q")->admixture
-read.table("./datafiles/all_pops_merged.2.Q_se")->SE
+read.table("all_pops_merged.2.Q")->admixture
+read.table("all_pops_merged.2.Q_se")->SE
 cbind(deername, admixture, SE)->admixture_data
 names(admixture_data)<-c("EM.code", "ad_sika", "ad_red", "ad_SE2", "ad_SE1")
 admixture_data$SNP_species<-ifelse((admixture_data$ad_red+1.96*admixture_data$ad_SE1>=0.99999), "red", 
@@ -127,6 +127,10 @@ point_est <- extract_point_estimate(model_out = modelOut, countData = cnvg_data_
 ### differential expression
 diff_abund_test <- diff_abund(model_out = modelOut, countData = cnvg_data_nosika_ordered) ### this gives pairwise differences between each of the treatments, and gives the genes that are different between them
 
+### the two differential expression tables for heart vs heart and muscle vs muscle are:
+write.csv(diff_abund_test$features_that_differed$treatment_1_vs_treatment_3, file="heart_heart_DEG.csv")
+write.csv(diff_abund_test$features_that_differed$treatment_2_vs_treatment_4, file="muscle_muscle_DEG.csv")
+
 
 #From vingette
 #This function subtracts the posterior distribution of the pi paramater for each feature in one treatment group from the pi parameter distribution in other treatment groups. 
@@ -186,7 +190,7 @@ plot2<-plot+scale_color_manual(values=c("black", "red"))+xlab("Estimated differe
 print(plot2)
 dev.off()
 
-
+### this is all a mess below this ###
 
 ###bringing in some annotation
 #gbff<-read.delim("~/Downloads/GCF_910594005.1_mCerEla1.1_rna.gbff", header=F, comment.char="#")
@@ -247,7 +251,52 @@ plot(density(entropies[[1]][[1]]), xlab = "Entropy", ylab = "Density", main = ""
 dev.off()
 save.images("/project/evolgen/emcfarl2/deer_RNAseq/output/deer_dirichlet_DEG_shortrunq.RData")
 
+#### want to pull what I need for a PCA, from the old pcaExploreAttempt_170322.R code
+### basically starting over, because I can't be asked to do anything other than follow the tutorial. ###
 
-###think a little bit about what you want out of this model?
-### Do I want a plot with the number of DEG, so pairwise comparison on the x, pairwise genes on the y?
-### some kind of heatmap for each pairwise, where deeper colours are larger differences?
+library(pcaExplorer)
+
+### will need to add something like this to it, to only look at the protein coding genes
+read.table("~/Google Drive/Paper VI - RNAseq/Scottish_deer_RNAseq_R/ncbi_protein_coding_genes.tsv", header = T)->gene_list
+
+
+countfiles<-list.files("/Volumes/GoogleDrive/My Drive/Paper VI - RNAseq/Output/Countfiles_170322/Countfiles", pattern="*_count.tsv")
+
+deernames_count<-as.factor(sapply(strsplit(countfiles, split="_"), function(x) x[1]))
+tissuetype_count<-as.factor(sapply(strsplit(countfiles, split="_"), function(x) x[2]))
+
+count<-list()
+
+setwd("~/Google Drive/Paper VI - RNAseq/Output/CountFiles_170322/Countfiles")
+for(i in 1:length(countfiles)){
+  count[[i]]<-read.table(countfiles[i])[1:33296,2]
+}
+
+###works to here so far...
+count_df<-matrix(unlist(count), ncol=56, byrow=TRUE)
+
+row.names(count_df)<-read.table(countfiles[1])[1:33296,1]
+
+colData_1<-data.frame(cbind(as.character(deernames_count), as.character(tissuetype_count)))
+names(colData_1)<-c("deername", "tissue")
+
+
+### this isn't working, and I don't know why ###
+
+### use a vlookup, I really only need the SNP species for the colData, not mass. I'm probably over thinking this.
+
+merge(colData_1, alldata, by.x="deername", by.y="tissue", no.dups=TRUE)->merge_data #56 individuals
+merge_data_nosika<-merge_data[which(merge_data$ad_red>0.5),]
+merge_data_nosika[,c(1,2,9,19)]->colData
+as.factor(colData$SNP_species)->colData$SNP_species
+as.factor(colData$tissue.x)->colData$tissue.x
+
+### need to get just the same individuals that I used in CNVRG analysis ###
+count_df<-count_df[,which(deernames_count %in% colData$deername)]
+count_df_coding<-count_df[which(rownames(count_df) %in% gene_list$GeneID), ]
+
+
+
+dds <- DESeqDataSetFromMatrix(countData = count_df_coding,
+                              colData = colData,
+                              design= ~ tissue.x*SNP_pecies)

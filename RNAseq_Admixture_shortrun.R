@@ -177,22 +177,26 @@ muscle_muscle<-cbind.data.frame(gene_names,mean_ests_muscle, differences_muscle)
 muscle_muscle$DE<-muscle_muscle$gene_names %in% diff_abund_test$features_that_differed$treatment_2_vs_treatment_4$feature_that_differed
 muscle_muscle$delabel<-NA
 muscle_muscle$delabel<-as.character(ifelse(muscle_muscle$DE == "FALSE", NA, muscle_muscle$gene_names))
-jpeg(filename="muscle_volcano.jpeg")
-plot<-ggplot(muscle_muscle, aes(x=mean_ests_muscle, y=differences_muscle, colours=as.factor(DE), label=delabel))+geom_point()+theme_minimal()
-plot2<-plot+scale_color_manual(values=c("black", "red"))+geom_text_repel(size=2, max.overlaps=100)
+muscle_muscle$differences_absolute<-ifelse(muscle_muscle$differences>0.5, 1-muscle_muscle$differences, muscle_muscle$differences)
+
+png(filename="muscle_volcano.png", width=4,height=4,units="in",res=1200, pointsize = 1)
+###still need to do labels, including that this is treatment 1 to treatment 3
+plot<-ggplot(muscle_muscle, aes(x=mean_ests_muscle, y=-log10(differences_absolute+0.00001), colour=as.factor(DE)))+geom_point(show.legend=FALSE)+theme_minimal()
+plot2<-plot+scale_color_manual(values=c("black", "red"))+xlab("Estimated difference between hybrid muscle and red deer muscle")+ylab("-log10 absolute certainty in differences")+theme(axis.text=element_text(size=4),axis.title=element_text(size=8))
 print(plot2)
 dev.off()
 
 
 
 ###bringing in some annotation
-gbff<-read.delim("~/Downloads/GCF_910594005.1_mCerEla1.1_rna.gbff", header=F, comment.char="#")
+#gbff<-read.delim("~/Downloads/GCF_910594005.1_mCerEla1.1_rna.gbff", header=F, comment.char="#")
 
-library(rtracklayer)
-library(zoo)
-gtf<-rtracklayer::import("~/Downloads/GCF_910594005.1_mCerEla1.1_genomic.gtf")
-gff<-rtracklayer::import.gff("~/Downloads/GCF_910594005.1_mCerEla1.1_genomic.gff")
-
+#library(rtracklayer)
+#library(zoo)
+library(ape)
+#gtf<-rtracklayer::import("~/Downloads/GCF_910594005.1_mCerEla1.1_genomic.gtf")
+gff<-read.gff("./datafiles/GCF_910594005.1_mCerEla1.1_genomic.gff")
+#gff <- read.table('./datafiles/GCF_910594005.1_mCerEla1.1_genomic.gff', sep="\t", quote="")
 
 annotation<-data.frame(cbind(gff$gene, gff$chromosome, gff@ranges@start))
 annotation[,2]<-as.numeric(na.locf(annotation[,2]))
@@ -202,35 +206,7 @@ names(annotation)<-c("gene", "chromosome", "position")
 annotation$chrom_pos<-as.numeric(paste0(annotation$chromosome, ".", annotation$position))
 
 length(tapply(annotation$position, annotation$gene, min)) ###this is what I want for position
-####
 
-
-
-jpeg(file="heart_heart_manhatten.jpeg")
-ggplot(differential_abundance, aes(x=names, y=-log10(X2)))+geom_point()
-dev.off()
-
-
-### want to look at probability of differences either >0.95 or <0.05
-#diff_abund_test$features_that_differed$treatment_1_vs_treatment_3 ##heart vs heart
-#diff_abund_test$features_that_differed$treatment_2_vs_treatment_4 ## muscle vs muscle
-
-### this would be a volcano plot of just the genes that differ, but the probablity of difference is totally bimodal. Doesn't make complete sense to me
-heart_heart<-diff_abund_test$features_that_differed$treatment_1_vs_treatment_3
-names(heart_heart)<-c("gene", "probability_of_difference", "effect_size")
-
-merged<-merge(heart_heart, annotation, by="gene")
-###need to figure out something here so that I don't get all of the positions, I only get the lowest one
-
-jpeg(file="heart_heart_volcano.jpeg")
-plot(heart_heart$'effect size', heart_heart$'probability_of_difference')
-dev.off()
-
-
-muscle_muscle<-diff_abund_test$features_that_differed$treatment_2_vs_treatment_4
-jpeg(file="muscle_muscle_volcano.jpeg")
-plot(muscle_muscle$'effect size', muscle_muscle$'probability_of_difference')
-dev.off()
 
 
 ### let's try these as only significant manhatten plots? 

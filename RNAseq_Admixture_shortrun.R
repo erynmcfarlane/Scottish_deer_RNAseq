@@ -265,6 +265,8 @@ countfiles<-list.files("/Volumes/GoogleDrive/My Drive/Paper VI - RNAseq/Output/C
 deernames_count<-as.factor(sapply(strsplit(countfiles, split="_"), function(x) x[1]))
 tissuetype_count<-as.factor(sapply(strsplit(countfiles, split="_"), function(x) x[2]))
 
+tissuetype_count<-as.factor(sub(".$","\\",tissuetype_count))
+
 count<-list()
 
 setwd("~/Google Drive/Paper VI - RNAseq/Output/CountFiles_170322/Countfiles")
@@ -285,18 +287,98 @@ names(colData_1)<-c("deername", "tissue")
 
 ### use a vlookup, I really only need the SNP species for the colData, not mass. I'm probably over thinking this.
 
-merge(colData_1, alldata, by.x="deername", by.y="tissue", no.dups=TRUE)->merge_data #56 individuals
-merge_data_nosika<-merge_data[which(merge_data$ad_red>0.5),]
-merge_data_nosika[,c(1,2,9,19)]->colData
+library(tidyverse)
+
+vlookup<-function(this, data, key, value) {
+  m<-match(this, data[[key]])
+  data[[value]][m]
+}
+
+colData_1$SNP_species<-vlookup(colData_1$deername, alldata, "deername", "SNP_species")
+colData_1$ad_red<-vlookup(colData_1$deername, alldata, "deername", "ad_red")
+merge_data_nosika<-colData_1[which(colData_1$ad_red>0.5),] ###taking out everything but red deer and red deer like hybrids
+merge_data_nosika->colData
 as.factor(colData$SNP_species)->colData$SNP_species
-as.factor(colData$tissue.x)->colData$tissue.x
+as.factor(colData$tissue)->colData$tissue
+as.factor(colData$deername)->colData$deername
+
+
 
 ### need to get just the same individuals that I used in CNVRG analysis ###
 count_df<-count_df[,which(deernames_count %in% colData$deername)]
 count_df_coding<-count_df[which(rownames(count_df) %in% gene_list$GeneID), ]
 
-
+##mostly following this vingette
+##http://bioconductor.org/packages/devel/bioc/vignettes/DESeq2/inst/doc/DESeq2.html#quick-start
 
 dds <- DESeqDataSetFromMatrix(countData = count_df_coding,
                               colData = colData,
-                              design= ~ tissue.x*SNP_pecies)
+                              design= ~ tissue*SNP_species) ###I don't know how this is accounting for the 2 way interaction
+
+dds <- DESeq(dds)
+keep <- rowSums(counts(dds)) >= 5
+dds <- dds[keep,]
+results<-results(dds, alpha=0.05)
+results[which(results$padj < 0.05),]
+
+summary(results)
+plotMA(results)
+
+vst <- vst(dds)
+
+str(assay(vst))
+sampleDists<-dist(t(assay(vst)))
+
+
+plotPCA(vst, intgroup = c("SNP_species", "tissue"))+theme_bw()+scale_color_manual(values=c("orchid4", "purple4", "indianred1", "red"), name = "Species and Tissue")
+
+#### let's do PCA just of DEG
+### I don't really know what this tells me. It's still not explaining a lot of variation, even though I know these are DEG
+DEG<-as.factor(c(diff_abund_test$features_that_differed$treatment_1_vs_treatment_3$feature_that_differed, diff_abund_test$features_that_differed$treatment_2_vs_treatment_4$feature_that_differed))
+
+count_df_coding_DEG<-count_df_coding[which(rownames(count_df_coding) %in% DEG), ]
+
+dds_DEG <- DESeqDataSetFromMatrix(countData = count_df_coding_DEG,
+                              colData = colData,
+                              design= ~ tissue*SNP_species)
+
+dds_DEG <- DESeq(dds_DEG)
+#keep <- rowSums(counts(dds)) >= 5
+#dds <- dds[keep,]
+vst_DEG <- vst(dds_DEG, nsub=nrow(dds_DEG))
+
+str(assay(vst_DEG))
+sampleDists_DEG<-dist(t(assay(vst_DEG)))
+
+
+plotPCA(vst_DEG, intgroup = c("SNP_species", "tissue"))+theme_bw()+scale_color_manual(values=c("orchid4", "purple4", "indianred1", "red"), name = "Species and Tissue")
+
+
+
+###DESeq2 for each tissue at a time
+
+dds_heart <- DESeqDataSetFromMatrix(countData = count_df_coding[,which(colData$tissue=="heartA")],
+                              colData = colData[which(colData$tissue=="heartA"),],
+                              design= ~ SNP_species) ###I don't know how this is accounting for the 2 way interaction
+
+dds_heart <- DESeq(dds_heart)
+keep <- rowSums(counts(dds_heart)) >= 5
+dds_heart <- dds_heart[keep,]
+results<-results(dds_heart, alpha=0.05)
+heart_sig<-results[which(results$padj < 0.05),]
+
+### getting totally different genes that are significant. I wouldn't expect this based on Harrison's paper. 
+summary(rownames(heart_sig) %in% diff_abund_test$features_that_differed$treatment_1_vs_treatment_3$feature_that_differed)
+
+dds_muscle <- DESeqDataSetFromMatrix(countData = count_df_coding[,which(colData$tissue=="muscleA")],
+                                    colData = colData[which(colData$tissue=="muscleA"),],
+                                    design= ~ SNP_species) ###I don't know how this is accounting for the 2 way interaction
+
+dds_muscle <- DESeq(dds_muscle)
+keep <- rowSums(counts(dds_muscle)) >= 5
+dds_muscle <- dds_muscle[keep,]
+results<-results(dds_muscle, alpha=0.05)
+muscle_sig<-results[which(results$padj < 0.05),]
+
+summary(rownames(muscle_sig) %in% diff_abund_test$features_that_differed$treatment_2_vs_treatment_4$feature_that_differed)
+### I don't understand why I get completely different DEG when I use CNVRG compared to when I use DESeq2 ###

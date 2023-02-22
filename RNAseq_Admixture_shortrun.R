@@ -357,8 +357,8 @@ plotPCA(vst_DEG, intgroup = c("SNP_species", "tissue"))+theme_bw()+scale_color_m
 
 ###DESeq2 for each tissue at a time
 
-dds_heart <- DESeqDataSetFromMatrix(countData = count_df_coding[,which(colData$tissue=="heartA")],
-                              colData = colData[which(colData$tissue=="heartA"),],
+dds_heart <- DESeqDataSetFromMatrix(countData = count_df_coding[,which(colData$tissue=="heart")],
+                              colData = colData[which(colData$tissue=="heart"),],
                               design= ~ SNP_species) ###I don't know how this is accounting for the 2 way interaction
 
 dds_heart <- DESeq(dds_heart)
@@ -367,11 +367,16 @@ dds_heart <- dds_heart[keep,]
 results<-results(dds_heart, alpha=0.05)
 heart_sig<-results[which(results$padj < 0.05),]
 
+cbind.data.frame(rownames(results), results$log2FoldChange)->DESeq_heart
+
 ### getting totally different genes that are significant. I wouldn't expect this based on Harrison's paper. 
 summary(rownames(heart_sig) %in% diff_abund_test$features_that_differed$treatment_1_vs_treatment_3$feature_that_differed)
 
-dds_muscle <- DESeqDataSetFromMatrix(countData = count_df_coding[,which(colData$tissue=="muscleA")],
-                                    colData = colData[which(colData$tissue=="muscleA"),],
+
+
+
+dds_muscle <- DESeqDataSetFromMatrix(countData = count_df_coding[,which(colData$tissue=="muscle")],
+                                    colData = colData[which(colData$tissue=="muscle"),],
                                     design= ~ SNP_species) ###I don't know how this is accounting for the 2 way interaction
 
 dds_muscle <- DESeq(dds_muscle)
@@ -379,6 +384,30 @@ keep <- rowSums(counts(dds_muscle)) >= 5
 dds_muscle <- dds_muscle[keep,]
 results<-results(dds_muscle, alpha=0.05)
 muscle_sig<-results[which(results$padj < 0.05),]
+cbind.data.frame(rownames(results), results$log2FoldChange)->DESeq_muscle
 
 summary(rownames(muscle_sig) %in% diff_abund_test$features_that_differed$treatment_2_vs_treatment_4$feature_that_differed)
 ### I don't understand why I get completely different DEG when I use CNVRG compared to when I use DESeq2 ###
+
+cbind.data.frame(gene_names, mean_ests, mean_ests_muscle)->CNVRG_pointestimates
+names(DESeq_muscle)<-c("gene_names", "log2fold_muscle")
+names(DESeq_heart)<-c("gene_names", "log2fold_heart")
+
+merge(DESeq_muscle, DESeq_heart, by="gene_names")->DESeq2_pointestimates
+merge(DESeq2_pointestimates, CNVRG_pointestimates, by="gene_names")->DESeq2_CNVRG_pointestimates
+
+#### to get -log2 for comparison purposes
+summary(ifelse(DESeq2_CNVRG_pointestimates$mean_ests!=0, -log2(DESeq2_CNVRG_pointestimates$mean_ests), -log2(DESeq2_CNVRG_pointestimates$mean_ests+0.00001)))
+cor.test(DESeq2_CNVRG_pointestimates$log2fold_heart, log2(abs(DESeq2_CNVRG_pointestimates$mean_ests)), method="spearman")
+
+cor.test(DESeq2_CNVRG_pointestimates$log2fold_muscle, log2(abs(DESeq2_CNVRG_pointestimates$mean_ests_muscle)), method="spearman")       
+
+
+jpeg(file="/Volumes/GoogleDrive/My Drive/Paper VI - RNAseq/Output/muscle_correlation_CNVRG_DESeq2.jpeg")
+ggplot(DESeq2_CNVRG_pointestimates, aes(log2fold_muscle, log2(abs(mean_ests_muscle))))+geom_smooth(method="lm")+geom_point()
+dev.off()
+
+
+jpeg(file="/Volumes/GoogleDrive/My Drive/Paper VI - RNAseq/Output/heart_correlation_CNVRG_DESeq2.jpeg")
+ggplot(DESeq2_CNVRG_pointestimates, aes(log2fold_heart, log2(abs(mean_ests))))+geom_smooth(method="lm")+geom_point()
+dev.off()

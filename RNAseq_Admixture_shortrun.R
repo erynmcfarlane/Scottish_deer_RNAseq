@@ -87,7 +87,7 @@ cnvg_data_nosika<-cbind.data.frame(treatment, t(count_df_coding_nosika))
 cnvg_data_nosika_ordered<-cnvg_data_nosika[order(cnvg_data_nosika[,1]),]
 
 ###0's aren't allowed, add one to everything
-cnvg_data_nosika_ordered[,2:22927] <- 1 + cnvg_data_nosika_ordered[,2:22927]
+cnvg_data_nosika_ordered[,2:22927] <- 1 + cnvg_data_nosika_ordered[,2:22927] ### I haven't done this for the DESeq2 analyses, how much does it matter?
 
 ### let's make a much smaller analysis, just to start
 
@@ -308,6 +308,7 @@ as.factor(colData$deername)->colData$deername
 count_df<-count_df[,which(deernames_count %in% colData$deername)]
 count_df_coding<-count_df[which(rownames(count_df) %in% gene_list$GeneID), ]
 
+count_df_coding<-count_df_coding+1
 ##mostly following this vingette
 ##http://bioconductor.org/packages/devel/bioc/vignettes/DESeq2/inst/doc/DESeq2.html#quick-start
 
@@ -357,13 +358,13 @@ plotPCA(vst_DEG, intgroup = c("SNP_species", "tissue"))+theme_bw()+scale_color_m
 
 ###DESeq2 for each tissue at a time
 
-dds_heart <- DESeqDataSetFromMatrix(countData = count_df_coding[,which(colData$tissue=="heartA")],
-                              colData = colData[which(colData$tissue=="heartA"),],
+dds_heart <- DESeqDataSetFromMatrix(countData = count_df_coding[,which(colData$tissue=="heart")],
+                              colData = colData[which(colData$tissue=="heart"),],
                               design= ~ SNP_species) ###I don't know how this is accounting for the 2 way interaction
 
 dds_heart <- DESeq(dds_heart)
-keep <- rowSums(counts(dds_heart)) >= 5
-dds_heart <- dds_heart[keep,]
+#keep <- rowSums(counts(dds_heart)) >= 5
+#dds_heart <- dds_heart[keep,]
 results<-results(dds_heart, alpha=0.05)
 heart_sig<-results[which(results$padj < 0.05),]
 
@@ -380,8 +381,8 @@ dds_muscle <- DESeqDataSetFromMatrix(countData = count_df_coding[,which(colData$
                                     design= ~ SNP_species) ###I don't know how this is accounting for the 2 way interaction
 
 dds_muscle <- DESeq(dds_muscle)
-keep <- rowSums(counts(dds_muscle)) >= 5
-dds_muscle <- dds_muscle[keep,]
+#keep <- rowSums(counts(dds_muscle)) >= 5
+#dds_muscle <- dds_muscle[keep,]
 results<-results(dds_muscle, alpha=0.05)
 muscle_sig<-results[which(results$padj < 0.05),]
 cbind.data.frame(rownames(results), results$log2FoldChange)->DESeq_muscle
@@ -395,6 +396,12 @@ names(DESeq_heart)<-c("gene_names", "log2fold_heart")
 
 merge(DESeq_muscle, DESeq_heart, by="gene_names")->DESeq2_pointestimates
 merge(DESeq2_pointestimates, CNVRG_pointestimates, by="gene_names")->DESeq2_CNVRG_pointestimates
+
+cor.test(DESeq2_CNVRG_pointestimates$log2fold_heart, DESeq2_CNVRG_pointestimates$mean_ests) ### still not at all correlated, really.
+
+plot(DESeq2_CNVRG_pointestimates$log2fold_heart, DESeq2_CNVRG_pointestimates$mean_ests)
+plot(DESeq2_CNVRG_pointestimates$log2fold_muscle, DESeq2_CNVRG_pointestimates$mean_ests_muscle)
+
 
 #### to get -log2 for comparison purposes
 summary(ifelse(DESeq2_CNVRG_pointestimates$mean_ests!=0, -log2(DESeq2_CNVRG_pointestimates$mean_ests), -log2(DESeq2_CNVRG_pointestimates$mean_ests+0.00001)))

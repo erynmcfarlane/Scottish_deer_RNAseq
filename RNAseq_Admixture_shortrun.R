@@ -357,8 +357,8 @@ plotPCA(vst_DEG, intgroup = c("SNP_species", "tissue"))+theme_bw()+scale_color_m
 
 ###DESeq2 for each tissue at a time
 
-dds_heart <- DESeqDataSetFromMatrix(countData = count_df_coding[,which(colData$tissue=="heart")],
-                              colData = colData[which(colData$tissue=="heart"),],
+dds_heart <- DESeqDataSetFromMatrix(countData = count_df_coding[,which(colData$tissue=="heartA")],
+                              colData = colData[which(colData$tissue=="heartA"),],
                               design= ~ SNP_species) ###I don't know how this is accounting for the 2 way interaction
 
 dds_heart <- DESeq(dds_heart)

@@ -100,17 +100,6 @@ modelOut <- cnvrg_HMC(countData = cnvg_data_nosika_ordered,
                       cores = 10,
                       params_to_save = c("pi", "p"))
 
-###shortrun###
-modelOut <- cnvrg_HMC(countData = cnvg_data_nosika_ordered, 
-                      starts = indexer(cnvg_data_nosika_ordered$treatment)$starts, 
-                      ends = indexer(cnvg_data_nosika_ordered$treatment)$ends, 
-                      chains = 2, 
-                      burn = 25, 
-                      samples = 50, 
-                      thinning_rate = 2,
-                      cores = 10,
-                      params_to_save = c("pi", "p"))
-
 ##check for convergence ##
 jpeg(file="Rhat_density.jpeg")
 plot(density(rstan::summary(modelOut, pars = "pi", probs =c(0.025, 0.975))$summary[,7]),  xlab = "Rhat", ylab = "Density", main = "")

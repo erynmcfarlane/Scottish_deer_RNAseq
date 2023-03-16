@@ -78,7 +78,7 @@ treatment<-colData_nosika$treatment
 count_df_coding_nosika<-count_df_coding[,c(1:22, 25:30, 33:38, 41:56)]### This can be used both for cnvrg and deseq2, I thin
 
 ## let's test it short for now, comment this out later
-count_df_coding_nosika<-count_df_coding_nosika[1:1000,]
+#count_df_coding_nosika<-count_df_coding_nosika[1:1000,]
 
 #### CNVRG Analyses ####
 ### data wranging specific for cnvg ###
@@ -99,6 +99,8 @@ modelOut <- cnvrg_HMC(countData = cnvg_data_nosika_ordered,
                       thinning_rate = 2,
                       cores = 10,
                       params_to_save = c("pi", "p"))
+
+save.image("PostCNVRG.RData")
 
 ##check for convergence ##
 jpeg(file="Rhat_density.jpeg")
@@ -199,7 +201,7 @@ dev.off()
 #print(PCA)
 #dev.off()
 
-
+save.image("RNAseq_comparison.RData")
 
 
 

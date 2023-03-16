@@ -5,7 +5,13 @@ library(rstan)
 options(mc.cores = parallel::detectCores())
 library(ggplot2)
 library(ggrepel)
-#library(DESeq2)
+library(DESeq2)
+library(tidyverse)
+
+vlookup<-function(this, data, key, value) {
+  m<-match(this, data[[key]])
+  data[[value]][m]
+}
 
 #### Load in all data and get it ready for the different analyses ####
 
@@ -34,8 +40,7 @@ count_df_coding<-count_df[which(rownames(count_df) %in% gene_list$GeneID), ]
 
 #names(count_df)<-paste0(deernames_count, tissuetype_count)
 #row.names(count_df)<-read.table(countfiles[1])[1:25518,1]
-count_df_coding ### This can be used both for cnvrg and deseq2, I think
-
+str(count_df_coding) ### This can be used both for cnvrg and deseq2, I think
 
 setwd("../")
 
@@ -68,7 +73,7 @@ colData[which(colData$Weight=="N/A"),]$Weight<-NA
 ###I'm going to take out the one sika individual, SAC00002777, and two sika like individuals SAC00002805 and SAC00002817
 
 colData_nosika<-colData[which(colData$ad_red>0.5),]
-colData_nosika$treatment<-paste(colData_nosika$SNP_species, colData_nosika$tissue) ### to make one treatment, 4 possibilities, two species and two tissues
+colData_nosika$treatment<-paste0(colData_nosika$SNP_species, colData_nosika$tissue) ### to make one treatment, 4 possibilities, two species and two tissues
 treatment<-colData_nosika$treatment
 count_df_coding_nosika<-count_df_coding[,c(1:22, 25:30, 33:38, 41:56)]### This can be used both for cnvrg and deseq2, I thin
 
@@ -91,6 +96,17 @@ modelOut <- cnvrg_HMC(countData = cnvg_data_nosika_ordered,
                       chains = 2, 
                       burn = 500, 
                       samples = 1000, 
+                      thinning_rate = 2,
+                      cores = 10,
+                      params_to_save = c("pi", "p"))
+
+###shortrun###
+modelOut <- cnvrg_HMC(countData = cnvg_data_nosika_ordered, 
+                      starts = indexer(cnvg_data_nosika_ordered$treatment)$starts, 
+                      ends = indexer(cnvg_data_nosika_ordered$treatment)$ends, 
+                      chains = 2, 
+                      burn = 25, 
+                      samples = 50, 
                       thinning_rate = 2,
                       cores = 10,
                       params_to_save = c("pi", "p"))
@@ -152,4 +168,50 @@ dev.off()
 
 #### DESeq2 Analyses ####
 
-## what does treatment do? Can I use this as ColData?
+data.frame(treatment)->treatment.df
+as.factor(treatment.df$treatment)->treatment.df$treatment
+
+dds <- DESeqDataSetFromMatrix(countData = count_df_coding_nosika,
+                              colData = treatment.df,
+                              design= ~ treatment)
+
+dds <- DESeq(dds)
+keep <- rowSums(counts(dds)) >= 5
+dds <- dds[keep,]
+
+results_heart<-results(dds, alpha=0.05, contrast=c("treatment", "hybridheart", "redheart"))
+results_heart[which(results_heart$padj < 0.05),]
+
+results_muscle<-results(dds, alpha=0.05, contrast=c("treatment", "hybridmuscle", "redmuscle"))
+results_muscle[which(results_muscle$padj < 0.05),]
+
+#### comparison between CNVRG and DESeq2 ####
+cbind.data.frame(rownames(results_heart), results_heart$log2FoldChange, results_muscle$log2FoldChange)->DESeq_results
+names(DESeq_results)<-c("gene_names", "heart_DESeq_log2fold", "muscle_DESeq_log2fold")
+
+cbind.data.frame(gene_names, mean_ests, mean_ests_muscle)->CNVRG_pointestimates
+merge(DESeq_results, CNVRG_pointestimates, by="gene_names")->DESeq2_CNVRG_pointestimates
+
+cor.test(DESeq2_CNVRG_pointestimates$heart_DESeq_log2fold, DESeq2_CNVRG_pointestimates$mean_ests) ### still not at all correlated, really.
+
+cor.test(DESeq2_CNVRG_pointestimates$muscle_DESeq_log2fold, DESeq2_CNVRG_pointestimates$mean_ests)
+
+jpeg(file="heart_correlation.jpeg")
+plot(DESeq2_CNVRG_pointestimates$heart_DESeq_log2fold, DESeq2_CNVRG_pointestimates$mean_ests)
+dev.off()
+
+jpeg(file="muscle_correlation.jpeg")
+plot(DESeq2_CNVRG_pointestimates$muscle_DESeq_log2fold, DESeq2_CNVRG_pointestimates$mean_ests_muscle)
+dev.off()
+
+##this doesn't work, but also, do I want it?
+#png(filename="PCA_DESeq2.png", width=4,height=4,units="in",res=1200, pointsize = 1)
+#PCA<-plotPCA(vst, intgroup = c("treatment"))+theme_bw()+scale_color_manual(values=c("orchid4", "purple4", "indianred1", "red"), name = "Species and Tissue")
+#print(PCA)
+#dev.off()
+
+
+
+
+
+

@@ -75,6 +75,8 @@ colData[which(colData$Weight=="N/A"),]$Weight<-NA
 colData_nosika<-colData[which(colData$ad_red>0.5),]
 colData_nosika$treatment<-paste0(colData_nosika$SNP_species, colData_nosika$tissue) ### to make one treatment, 4 possibilities, two species and two tissues
 treatment<-colData_nosika$treatment
+
+###### NEED TO DOUBLE CHECK THAT I'M GETTING RID OF TEH RIGHT ANIMALS HERE!
 count_df_coding_nosika<-count_df_coding[,c(1:22, 25:30, 33:38, 41:56)]### This can be used both for cnvrg and deseq2, I thin
 
 ## let's test it short for now, comment this out later
@@ -203,6 +205,39 @@ dev.off()
 
 save.image("RNAseq_comparison.RData")
 
+#### add two PCAs from the DESeq pipeline ####
+###muscle only PCA ###
+dds_muscle <- DESeqDataSetFromMatrix(countData = count_df_coding[,which(colData$tissue=="muscle")],
+                                     colData = colData[which(colData$tissue=="muscle"),],
+                                     design= ~ SNP_species) ###I don't know how this is accounting for the 2 way interaction
 
+dds_muscle <- DESeq(dds_muscle)
+
+vst_muscle <- vst(dds_muscle)
+
+library("gplots")
+library("RColorBrewer")
+library("PoiClaClu")
+
+
+jpeg(file="muscle_PCA.jpeg")
+plotPCA(vst_muscle, intgroup = "SNP_species")+ stat_ellipse()
+dev.off()
+
+
+###heart only PCA###
+
+
+dds_heart <- DESeqDataSetFromMatrix(countData = count_df_coding[,which(colData$tissue=="heart")],
+                                    colData = colData[which(colData$tissue=="heart"),],
+                                    design= ~ SNP_species) ###I don't know how this is accounting for the 2 way interaction
+
+dds_heart <- DESeq(dds_heart)
+
+vst_heart <- vst(dds_heart)
+
+jpeg(file="heart_PCA.jpeg")
+plotPCA(vst_heart, intgroup = "SNP_species")+ stat_ellipse()
+dev.off()
 
 
